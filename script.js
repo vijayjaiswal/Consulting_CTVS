@@ -1,19 +1,19 @@
 const googleFormConfig = {
-    action: "",
+    action: "https://docs.google.com/forms/d/e/1FAIpQLSeG0zz1fmTy42PdRzJwe8bLmxFs8m565E10Zm7smUTuFWjDmQ/formResponse",
     entries: {
-        patientName: "",
-        phone: "",
-        email: "",
-        city: "",
-        careNeed: "",
-        plan: "",
-        selectedPrice: "",
-        preferredDate: "",
-        paymentMethod: "",
-        paymentReference: "",
-        message: ""
+        patientName: "entry.933560228",
+        phone: "entry.1033184670",
+        email: "entry.736476138",
+        city: "entry.571871749",
+        careNeed: "entry.839975472",
+        plan: "entry.1220890850",
+        selectedPrice: "entry.793302882",
+        preferredDate: "entry.27890053",
+        paymentMethod: "entry.151245104",
+        paymentReference: "entry.1355811",
+        message: "entry.1609637832"
     },
-    whatsappNumber: ""
+    whatsappNumber: "9711130991"
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -78,7 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 console.table(data);
             }
 
-            maybeOpenWhatsapp(data);
+            // WhatsApp integration disabled
             form.reset();
             selectedPrice.value = "";
             formMessage.textContent = googleFormConfig.action
@@ -97,32 +97,71 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 async function submitToGoogleForm(data) {
-    const params = new URLSearchParams();
+    return new Promise((resolve, reject) => {
+        try {
+            // Create a hidden iframe to receive the form post
+            const iframeName = "hidden_gform_iframe_" + Date.now();
+            const iframe = document.createElement("iframe");
+            iframe.name = iframeName;
+            iframe.style.display = "none";
+            document.body.appendChild(iframe);
 
-    Object.entries(googleFormConfig.entries).forEach(([field, entryId]) => {
-        if (!entryId || !Object.prototype.hasOwnProperty.call(data, field)) {
-            return;
+            // Create a hidden form targeting the iframe
+            const form = document.createElement("form");
+            form.method = "POST";
+            form.action = googleFormConfig.action;
+            form.target = iframeName;
+            form.style.display = "none";
+
+            // Add all form fields as hidden inputs
+            Object.entries(googleFormConfig.entries).forEach(([field, entryId]) => {
+                if (!entryId || !Object.prototype.hasOwnProperty.call(data, field)) {
+                    return;
+                }
+
+                if (field === "preferredDate" && data[field]) {
+                    const [year, month, day] = data[field].split("-");
+                    addHiddenInput(form, entryId + "_year", year);
+                    addHiddenInput(form, entryId + "_month", month);
+                    addHiddenInput(form, entryId + "_day", day);
+                    return;
+                }
+
+                addHiddenInput(form, entryId, data[field] || "");
+            });
+
+            document.body.appendChild(form);
+
+            // Resolve after iframe loads (submission complete)
+            iframe.addEventListener("load", () => {
+                // Clean up
+                setTimeout(() => {
+                    document.body.removeChild(iframe);
+                    document.body.removeChild(form);
+                }, 500);
+                resolve();
+            });
+
+            iframe.addEventListener("error", () => {
+                document.body.removeChild(iframe);
+                document.body.removeChild(form);
+                reject(new Error("Form submission failed"));
+            });
+
+            // Submit the form
+            form.submit();
+        } catch (err) {
+            reject(err);
         }
-
-        if (field === "preferredDate" && data[field]) {
-            const [year, month, day] = data[field].split("-");
-            params.append(`${entryId}_year`, year);
-            params.append(`${entryId}_month`, month);
-            params.append(`${entryId}_day`, day);
-            return;
-        }
-
-        params.append(entryId, data[field] || "");
     });
+}
 
-    await fetch(googleFormConfig.action, {
-        method: "POST",
-        mode: "no-cors",
-        headers: {
-            "Content-Type": "application/x-www-form-urlencoded"
-        },
-        body: params
-    });
+function addHiddenInput(form, name, value) {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = value;
+    form.appendChild(input);
 }
 
 function maybeOpenWhatsapp(data) {
